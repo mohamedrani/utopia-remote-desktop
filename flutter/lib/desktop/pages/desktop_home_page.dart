@@ -107,8 +107,10 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                       ),
                       if (!isOutgoingOnly)
                         Flexible(
-                            child: const OnlineStatusWidget()
-                                .marginOnly(left: 12)),
+                            child: Align(
+                                alignment: Alignment.centerRight,
+                                child: const OnlineStatusWidget()
+                                    .marginOnly(left: 12))),
                     ],
                   ),
                   if (!isOutgoingOnly) buildPresetPasswordWarning(),
@@ -144,28 +146,32 @@ class _DesktopHomePageState extends State<DesktopHomePage>
         onTap: onTap,
         onHover: (v) => hover.value = v,
         borderRadius: BorderRadius.circular(12),
-        child: Obx(() => Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
+        // Read hover.value unconditionally: an Obx that reads no observable
+        // throws in release (active button) and shows a grey error box.
+        child: Obx(() {
+          final h = hover.value;
+          return Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              color: active
+                  ? const Color(0x1FD4AF37)
+                  : h
+                      ? const Color(0x0FCFD8FF)
+                      : Colors.transparent,
+              border: Border.all(
+                  color: active ? const Color(0x80D4AF37) : Colors.transparent),
+            ),
+            child: Icon(icon,
+                size: 20,
                 color: active
-                    ? const Color(0x1FD4AF37)
-                    : hover.value
-                        ? const Color(0x0FCFD8FF)
-                        : Colors.transparent,
-                border: Border.all(
-                    color:
-                        active ? const Color(0x80D4AF37) : Colors.transparent),
-              ),
-              child: Icon(icon,
-                  size: 20,
-                  color: active
-                      ? SpaceColors.gold
-                      : hover.value
-                          ? SpaceColors.text
-                          : SpaceColors.muted),
-            )),
+                    ? SpaceColors.gold
+                    : h
+                        ? SpaceColors.text
+                        : SpaceColors.muted),
+          );
+        }),
       ),
     ).marginOnly(bottom: 10);
   }
@@ -710,14 +716,9 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     }
 
     if (isWindows && !bind.isDisableInstallation()) {
-      if (!bind.mainIsInstalled()) {
-        return buildInstallCard(
-            "", bind.isOutgoingOnly() ? "" : "install_tip", "Install",
-            () async {
-          await rustDeskWinManager.closeAllSubWindows();
-          bind.mainGotoInstall();
-        });
-      } else if (bind.mainIsInstalledLowerVersion()) {
+      // No "Install" (UAC) card: install fails while APP_NAME has spaces
+      // (validate_install_app_name in src/platform/windows.rs rejects it).
+      if (bind.mainIsInstalled() && bind.mainIsInstalledLowerVersion()) {
         return buildInstallCard(
             "Status", "Your installation is lower version.", "Click to upgrade",
             () async {
