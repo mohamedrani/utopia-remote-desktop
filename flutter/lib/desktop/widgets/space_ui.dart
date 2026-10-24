@@ -4,7 +4,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_hbb/common.dart';
+import 'package:flutter_hbb/common.dart' hide Dialog;
 import 'package:flutter_hbb/common/formatter/id_formatter.dart';
 import 'package:flutter_hbb/common/shared_state.dart';
 import 'package:flutter_hbb/consts.dart';
@@ -365,13 +365,19 @@ class _SpacePainter extends CustomPainter {
 }
 
 /// Space-styled dialog shell: dark rounded panel, Esc cancels, Enter submits.
-class SpaceDialogFrame extends StatelessWidget {
+/// Extends CustomAlertDialog because OverlayDialogManager.show expects one.
+class SpaceDialogFrame extends CustomAlertDialog {
   final Widget child;
-  final VoidCallback? onCancel;
-  final VoidCallback? onSubmit;
   const SpaceDialogFrame(
-      {Key? key, required this.child, this.onCancel, this.onSubmit})
-      : super(key: key);
+      {Key? key,
+      required this.child,
+      VoidCallback? onCancel,
+      VoidCallback? onSubmit})
+      : super(
+            key: key,
+            content: child,
+            onCancel: onCancel,
+            onSubmit: onSubmit);
 
   @override
   Widget build(BuildContext context) {
