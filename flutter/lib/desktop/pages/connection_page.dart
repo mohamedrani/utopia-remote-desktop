@@ -110,7 +110,8 @@ class _OnlineStatusWidgetState extends State<OnlineStatusWidget> {
           ),
         );
 
-    final dotColor = _svcStopped.value ||
+    // Called inside Obx, so the color follows the service status.
+    dotColor() => _svcStopped.value ||
             stateGlobal.svcStatus.value == SvcStatus.connecting
         ? kColorWarn
         : (stateGlobal.svcStatus.value == SvcStatus.ready
@@ -125,8 +126,8 @@ class _OnlineStatusWidgetState extends State<OnlineStatusWidget> {
               width: 8,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(4),
-                color: dotColor,
-                boxShadow: [BoxShadow(color: dotColor, blurRadius: 10)],
+                color: dotColor(),
+                boxShadow: [BoxShadow(color: dotColor(), blurRadius: 10)],
               ),
             ).marginOnly(left: isIncomingOnly ? em : 0, right: 8),
             isIncomingOnly

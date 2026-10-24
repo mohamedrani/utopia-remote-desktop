@@ -382,7 +382,6 @@ class SpaceDialogFrame extends CustomAlertDialog {
   @override
   Widget build(BuildContext context) {
     return Focus(
-      autofocus: true,
       onKeyEvent: (node, e) {
         if (e is! KeyDownEvent) return KeyEventResult.ignored;
         if (e.logicalKey == LogicalKeyboardKey.escape) {

@@ -1308,7 +1308,11 @@ Future<bool?> spaceAccountDialog() async {
   final code = TextEditingController();
   final newPass = TextEditingController();
   final newPass2 = TextEditingController();
+  // Not disposed: the overlay may still hold them while closing.
+  final emailFocus = FocusNode();
   final codeFocus = FocusNode();
+  final newPassFocus = FocusNode();
+  Timer(const Duration(milliseconds: 100), () => emailFocus.requestFocus());
   var mode = 'signin'; // signin | register | forgot
   var step = 0;
   var inProgress = false;
@@ -1321,12 +1325,16 @@ Future<bool?> spaceAccountDialog() async {
       if (step == 1 && mode != 'signin') setState(() {});
     });
     clearErrors() => emailMsg = passMsg = codeMsg = newPassMsg = null;
-    go(String m) => setState(() {
-          mode = m;
-          step = 0;
-          inProgress = false;
-          clearErrors();
-        });
+    go(String m) {
+      setState(() {
+        mode = m;
+        step = 0;
+        inProgress = false;
+        clearErrors();
+      });
+      Timer(const Duration(milliseconds: 50), () => emailFocus.requestFocus());
+    }
+
     storeToken(LoginResponse resp) async {
       await bind.mainSetLocalOption(
           key: 'access_token', value: resp.access_token!);
@@ -1398,7 +1406,7 @@ Future<bool?> spaceAccountDialog() async {
           codeSentAt = DateTime.now();
           code.clear();
           step = 1;
-          codeFocus.requestFocus();
+          Timer(const Duration(milliseconds: 50), () => codeFocus.requestFocus());
         }
       });
     }
@@ -1412,6 +1420,7 @@ Future<bool?> spaceAccountDialog() async {
         clearErrors();
         step = 2;
       });
+      Timer(const Duration(milliseconds: 50), () => newPassFocus.requestFocus());
     }
 
     savePassword() async {
@@ -1488,11 +1497,11 @@ Future<bool?> spaceAccountDialog() async {
     label(String t) => Text(translate(t),
         style: const TextStyle(fontSize: 12, color: SpaceColors.muted));
     field(TextEditingController c, String? err,
-            {bool obscure = false, bool autofocus = false}) =>
+            {bool obscure = false, FocusNode? focus}) =>
         TextField(
           controller: c,
           obscureText: obscure,
-          autofocus: autofocus,
+          focusNode: focus,
           enabled: !inProgress,
           style: const TextStyle(fontSize: 15, color: SpaceColors.text),
           cursorColor: SpaceColors.gold,
@@ -1567,7 +1576,6 @@ Future<bool?> spaceAccountDialog() async {
             child: TextField(
               controller: code,
               focusNode: codeFocus,
-              autofocus: true,
               showCursor: false,
               maxLength: 6,
               keyboardType: TextInputType.number,
@@ -1589,7 +1597,7 @@ Future<bool?> spaceAccountDialog() async {
     final fields = <Widget>[
       if (step == 0) ...[
         label('Email'),
-        field(email, emailMsg, autofocus: true),
+        field(email, emailMsg, focus: emailFocus),
         if (mode == 'signin') ...[
           const SizedBox(height: 10),
           Row(children: [
@@ -1618,7 +1626,7 @@ Future<bool?> spaceAccountDialog() async {
       ],
       if (step == 2) ...[
         label('New password'),
-        field(newPass, null, obscure: true, autofocus: true),
+        field(newPass, null, obscure: true, focus: newPassFocus),
         const SizedBox(height: 10),
         label('Repeat password'),
         field(newPass2, newPassMsg, obscure: true),
@@ -1776,8 +1784,5 @@ Future<bool?> spaceAccountDialog() async {
         ),
       ),
     );
-  }).whenComplete(() {
-    ticker?.cancel();
-    codeFocus.dispose();
-  });
+  }).whenComplete(() => ticker?.cancel());
 }
