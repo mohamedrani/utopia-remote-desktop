@@ -181,10 +181,10 @@ class ColorThemeExtension extends ThemeExtension<ColorThemeExtension> {
   );
 
   static final dark = ColorThemeExtension(
-    border: Color(0xFF2A3550),
+    border: Color(0x1ACFD8FF),
     border2: Color(0xFFE5E5E5),
     border3: Colors.white24,
-    highlight: Color(0xFF1C2742),
+    highlight: Color(0xFF141D3A),
     drag_indicator: Colors.grey,
     shadow: Colors.grey,
     errorBannerBg: Color(0xFF470F2D),
@@ -373,6 +373,7 @@ class MyTheme {
     // https://stackoverflow.com/questions/77537315/after-upgrading-to-flutter-3-16-the-app-bar-background-color-button-size-and
     useMaterial3: false,
     brightness: Brightness.light,
+    fontFamily: 'SpaceGrotesk',
     hoverColor: Color.fromARGB(255, 224, 224, 224),
     scaffoldBackgroundColor: Colors.white,
     dialogBackgroundColor: Colors.white,
@@ -471,45 +472,58 @@ class MyTheme {
   static ThemeData darkTheme = ThemeData(
     useMaterial3: false,
     brightness: Brightness.dark,
-    hoverColor: Color.fromARGB(255, 45, 46, 53),
-    scaffoldBackgroundColor: Color(0xFF070C1A),
-    dialogBackgroundColor: Color(0xFF070C1A),
+    fontFamily: 'SpaceGrotesk',
+    hoverColor: Color(0x14CFD8FF),
+    scaffoldBackgroundColor: Color(0xFF060A18),
+    dialogBackgroundColor: Color(0xFF0E152E),
     appBarTheme: AppBarTheme(
       shadowColor: Colors.transparent,
     ),
     dialogTheme: DialogTheme(
       elevation: 15,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18.0),
+        borderRadius: BorderRadius.circular(22.0),
         side: BorderSide(
           width: 1,
-          color: Color(0xFF101830),
+          color: Color(0x1FCFD8FF),
         ),
       ),
     ),
     scrollbarTheme: scrollbarThemeDark,
     inputDecorationTheme: (isDesktop || isWebDesktop)
         ? InputDecorationTheme(
-            fillColor: Color(0xFF101830),
+            fillColor: Color(0xB3060A18),
             filled: true,
             isDense: true,
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Color(0x2ECFD8FF)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Color(0x2ECFD8FF)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: accent),
             ),
           )
         : null,
     textTheme: const TextTheme(
-      titleLarge: TextStyle(fontSize: 19),
-      titleSmall: TextStyle(fontSize: 14),
-      bodySmall: TextStyle(fontSize: 12, height: 1.25),
-      bodyMedium: TextStyle(fontSize: 14, height: 1.25),
+      titleLarge: TextStyle(fontSize: 19, color: Color(0xFFE8ECF7)),
+      titleSmall: TextStyle(fontSize: 14, color: Color(0xFFE8ECF7)),
+      bodySmall:
+          TextStyle(fontSize: 12, height: 1.25, color: Color(0xFF9AA3BF)),
+      bodyMedium:
+          TextStyle(fontSize: 14, height: 1.25, color: Color(0xFFE8ECF7)),
       labelLarge: TextStyle(
         fontSize: 16.0,
         fontWeight: FontWeight.bold,
         color: accent80,
       ),
     ),
-    cardColor: Color(0xFF101830),
+    cardColor: Color(0xFF0E152E),
+    dividerColor: Color(0x14CFD8FF),
     visualDensity: VisualDensity.adaptivePlatformDensity,
     tabBarTheme: const TabBarTheme(
       labelColor: Colors.white70,
@@ -533,22 +547,22 @@ class MyTheme {
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
         backgroundColor: MyTheme.accent,
-        foregroundColor: Colors.white,
+        foregroundColor: Color(0xFF141006),
         disabledForegroundColor: Colors.white70,
         disabledBackgroundColor: Colors.white10,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8.0),
+          borderRadius: BorderRadius.circular(12.0),
         ),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
-        backgroundColor: Color(0xFF101830),
-        side: BorderSide(color: Colors.white12, width: 0.5),
+        backgroundColor: Colors.transparent,
+        side: BorderSide(color: Color(0x33CFD8FF), width: 1),
         disabledForegroundColor: Colors.white70,
-        foregroundColor: Colors.white70,
+        foregroundColor: Color(0xFFE8ECF7),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8.0),
+          borderRadius: BorderRadius.circular(12.0),
         ),
       ),
     ),
@@ -558,16 +572,20 @@ class MyTheme {
     listTileTheme: listTileTheme,
     menuBarTheme: MenuBarThemeData(
         style: MenuStyle(
-            backgroundColor: MaterialStatePropertyAll(Color(0xFF050912)))),
+            backgroundColor: MaterialStatePropertyAll(Color(0xFF0E152E)))),
     colorScheme: ColorScheme.dark(
       primary: accent,
+      onPrimary: Color(0xFF141006),
       secondary: accent,
-      background: Color(0xFF101830),
+      background: Color(0xFF0E152E),
+      surface: Color(0xFF0E152E),
+      onSurface: Color(0xFFE8ECF7),
     ),
     popupMenuTheme: PopupMenuThemeData(
+        color: Color(0xFF0E152E),
         shape: RoundedRectangleBorder(
-      side: BorderSide(color: Colors.white24),
-      borderRadius: BorderRadius.all(Radius.circular(8.0)),
+      side: BorderSide(color: Color(0x2ECFD8FF)),
+      borderRadius: BorderRadius.all(Radius.circular(12.0)),
     )),
   ).copyWith(
     extensions: <ThemeExtension<dynamic>>[
@@ -2059,6 +2077,13 @@ Future<bool> restoreWindowPosition(WindowType type,
       case WindowType.Main:
         // Center the main window only if no position is saved (on first run).
         if (isWindows || isLinux) {
+          // Utopia: first run opens at the Space UI design size, clamped to the screen.
+          final scr = (await window_size.getScreenList()).firstOrNull;
+          final f = scr == null ? null : scr.visibleFrame;
+          final k = scr == null || scr.scaleFactor <= 0 ? 1.0 : scr.scaleFactor;
+          await windowManager.setSize(Size(
+              min(1100.0, f == null ? 1100.0 : f.width / k - 40),
+              min(720.0, f == null ? 720.0 : f.height / k - 40)));
           await windowManager.center();
         }
         // For MacOS, the window is already centered by default.

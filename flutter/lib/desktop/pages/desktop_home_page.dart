@@ -7,12 +7,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hbb/common.dart';
 import 'package:flutter_hbb/common/widgets/animated_rotation_widget.dart';
+import 'package:flutter_hbb/common/formatter/id_formatter.dart';
 import 'package:flutter_hbb/common/widgets/custom_password.dart';
+import 'package:flutter_hbb/common/widgets/login.dart';
 import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/desktop/pages/connection_page.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_setting_page.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_tab_page.dart';
+import 'package:flutter_hbb/desktop/widgets/space_ui.dart';
 import 'package:flutter_hbb/desktop/widgets/update_progress.dart';
+import 'package:flutter_hbb/models/peer_tab_model.dart';
 import 'package:flutter_hbb/models/platform_model.dart';
 import 'package:flutter_hbb/models/server_model.dart';
 import 'package:flutter_hbb/models/state_model.dart';
@@ -52,22 +56,276 @@ class _DesktopHomePageState extends State<DesktopHomePage>
 
   final RxBool _editHover = false.obs;
   final RxBool _block = false.obs;
+  final RxBool _hideCode = false.obs;
 
   final GlobalKey _childKey = GlobalKey();
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    final isIncomingOnly = bind.isIncomingOnly();
+    if (bind.isIncomingOnly()) {
+      return _buildBlock(
+          child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [buildLeftPane(context)]));
+    }
+    // Space UI home is always dark (brand look); other windows follow the theme setting.
     return _buildBlock(
-        child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        buildLeftPane(context),
-        if (!isIncomingOnly) const VerticalDivider(width: 1),
-        if (!isIncomingOnly) Expanded(child: buildRightPane(context)),
-      ],
-    ));
+        child: Theme(data: MyTheme.darkTheme, child: _buildSpaceHome()));
+  }
+
+  Widget _buildSpaceHome() {
+    final isOutgoingOnly = bind.isOutgoingOnly();
+    return DefaultTextStyle.merge(
+      style: const TextStyle(fontFamily: kSpaceFont, color: SpaceColors.text),
+      child: Stack(children: [
+        const Positioned.fill(child: SpaceBackground(planet: true)),
+        Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          _buildRail(),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(32, 24, 32, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SpaceLabel(translate('Mission control'), size: 12),
+                            const SizedBox(height: 6),
+                            Text(translate('Ready for launch'),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                    fontSize: 30, fontWeight: FontWeight.w700)),
+                          ],
+                        ),
+                      ),
+                      if (!isOutgoingOnly)
+                        Flexible(
+                            child: const OnlineStatusWidget()
+                                .marginOnly(left: 12)),
+                    ],
+                  ),
+                  if (!isOutgoingOnly) buildPresetPasswordWarning(),
+                  Obx(() => buildHelpCards(stateGlobal.updateUrl.value)),
+                  const SizedBox(height: 20),
+                  Expanded(
+                    child: ConnectionPage(
+                        stationCard: isOutgoingOnly
+                            ? null
+                            : ChangeNotifierProvider.value(
+                                value: gFFI.serverModel,
+                                child: Consumer<ServerModel>(
+                                    builder: (context, model, _) =>
+                                        Obx(() => _buildStationCard(model))),
+                              )),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ]),
+      ]),
+    );
+  }
+
+  Widget _railButton(IconData icon, String tip, VoidCallback onTap,
+      {bool active = false}) {
+    final hover = false.obs;
+    return Tooltip(
+      message: tip,
+      waitDuration: const Duration(milliseconds: 400),
+      child: InkWell(
+        onTap: onTap,
+        onHover: (v) => hover.value = v,
+        borderRadius: BorderRadius.circular(12),
+        child: Obx(() => Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                color: active
+                    ? const Color(0x1FD4AF37)
+                    : hover.value
+                        ? const Color(0x0FCFD8FF)
+                        : Colors.transparent,
+                border: Border.all(
+                    color:
+                        active ? const Color(0x80D4AF37) : Colors.transparent),
+              ),
+              child: Icon(icon,
+                  size: 20,
+                  color: active
+                      ? SpaceColors.gold
+                      : hover.value
+                          ? SpaceColors.text
+                          : SpaceColors.muted),
+            )),
+      ),
+    ).marginOnly(bottom: 10);
+  }
+
+  Widget _buildRail() {
+    showTab(PeerTabIndex t) => gFFI.peerTabModel.setCurrentTab(t.index);
+    return Container(
+      width: 72,
+      padding: const EdgeInsets.only(top: 20, bottom: 18),
+      decoration: const BoxDecoration(
+        color: Color(0x66060A18),
+        border: Border(right: BorderSide(color: SpaceColors.divider)),
+      ),
+      child: Column(children: [
+        _railButton(Icons.track_changes, translate('Home'), () {},
+            active: true),
+        _railButton(Icons.hub_outlined, translate('Address book'),
+            () => showTab(PeerTabIndex.ab)),
+        _railButton(Icons.schedule, translate('Recent sessions'),
+            () => showTab(PeerTabIndex.recent)),
+        _railButton(Icons.swap_vert, translate('Transfer file'), () {
+          final id = Get.find<IDTextEditingController>().id;
+          if (id.isEmpty) {
+            showToast(translate('Enter Remote ID'));
+          } else {
+            connect(context, id, isFileTransfer: true);
+          }
+        }),
+        const Spacer(),
+        if (!bind.isDisableSettings())
+          _railButton(Icons.settings_outlined, translate('Settings'),
+              DesktopTabPage.onAddSetting),
+        if (!bind.isDisableAccount())
+          Obx(() {
+            final name = gFFI.userModel.userName.value;
+            return Tooltip(
+              message: name.isEmpty ? translate('Login') : name,
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: () =>
+                    name.isEmpty ? loginDialog() : logOutConfirmDialog(),
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: const Color(0xFF121B3D),
+                    border: Border.all(color: const Color(0x99D4AF37)),
+                  ),
+                  child: name.isEmpty
+                      ? const Icon(Icons.person_outline,
+                          size: 20, color: SpaceColors.gold)
+                      : Text(name.characters.first.toUpperCase(),
+                          style: const TextStyle(
+                              color: SpaceColors.gold,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14)),
+                ),
+              ),
+            );
+          }),
+      ]),
+    );
+  }
+
+  Widget _buildStationCard(ServerModel model) {
+    final showOneTime = model.approveMode != 'click' &&
+        model.verificationMethod != kUsePermanentPassword;
+    final pass = model.serverPasswd.text;
+    final shown = !_hideCode.value || !showOneTime;
+    copy(String s) {
+      Clipboard.setData(ClipboardData(text: s));
+      showToast(translate('Copied'));
+    }
+
+    return SpaceCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(children: [
+            Expanded(child: SpaceLabel(translate('This station'))),
+            Flexible(
+              child: Text(Platform.localHostname,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style:
+                      const TextStyle(fontSize: 12, color: SpaceColors.muted)),
+            ),
+          ]),
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(translate('Your ID'),
+                style: const TextStyle(fontSize: 12, color: SpaceColors.muted)),
+            const SizedBox(height: 6),
+            Row(children: [
+              Flexible(
+                child: GestureDetector(
+                  onDoubleTap: () => copy(model.serverId.text),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(model.serverId.text,
+                        maxLines: 1,
+                        style: spaceMono(34,
+                            color: SpaceColors.goldLight, spacing: 1.4)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              SpaceIconButton(
+                  icon: Icons.copy_rounded,
+                  tooltip: translate('Copy'),
+                  onPressed: () => copy(model.serverId.text)),
+            ]),
+          ]),
+          Container(height: 1, color: SpaceColors.divider),
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(translate('One-time Password'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 12, color: SpaceColors.muted)),
+            const SizedBox(height: 6),
+            Row(children: [
+              Expanded(
+                child: GestureDetector(
+                  onDoubleTap: showOneTime ? () => copy(pass) : null,
+                  child: Text(shown ? pass : '•' * pass.length,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: spaceMono(22,
+                          weight: FontWeight.w500, spacing: 2.6)),
+                ),
+              ),
+              if (showOneTime) ...[
+                SpaceIconButton(
+                    icon: shown
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                    tooltip: translate(shown ? 'Hide code' : 'Show code'),
+                    onPressed: () => _hideCode.toggle()),
+                const SizedBox(width: 8),
+                SpaceIconButton(
+                    icon: Icons.refresh,
+                    tooltip: translate('Refresh Password'),
+                    onPressed: () => bind.mainUpdateTemporaryPassword()),
+              ],
+              if (!bind.isDisableSettings()) ...[
+                const SizedBox(width: 8),
+                SpaceIconButton(
+                    icon: Icons.edit_outlined,
+                    tooltip: translate('Change Password'),
+                    onPressed: () =>
+                        DesktopSettingPage.switch2page(SettingsTabKey.safety)),
+              ],
+            ]),
+          ]),
+        ],
+      ),
+    );
   }
 
   Widget _buildBlock({required Widget child}) {
@@ -175,13 +433,6 @@ class _DesktopHomePageState extends State<DesktopHomePage>
           ],
         ),
       ),
-    );
-  }
-
-  buildRightPane(BuildContext context) {
-    return Container(
-      color: Theme.of(context).scaffoldBackgroundColor,
-      child: ConnectionPage(),
     );
   }
 
@@ -604,14 +855,16 @@ class _DesktopHomePageState extends State<DesktopHomePage>
               0, marginTop, 0, bind.isIncomingOnly() ? marginTop : 0),
           child: Container(
               decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: const Color(0x52D4AF37)),
                   gradient: LinearGradient(
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-                colors: [
-                  Color.fromARGB(255, 226, 66, 188),
-                  Color.fromARGB(255, 244, 114, 124),
-                ],
-              )),
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Color(0x33D4AF37),
+                      Color(0xE00E152E),
+                    ],
+                  )),
               padding: EdgeInsets.all(20),
               child: Column(
                   mainAxisAlignment: MainAxisAlignment.start,
@@ -649,8 +902,8 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                                       padding: 8,
                                       isOutline: true,
                                       text: translate(btnText),
-                                      textColor: Colors.white,
-                                      borderColor: Colors.white,
+                                      textColor: SpaceColors.gold,
+                                      borderColor: SpaceColors.gold,
                                       textSize: 20,
                                       radius: 10,
                                       onTap: onPressed,

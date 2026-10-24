@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 
 import '../../common.dart';
 import '../../common/formatter/id_formatter.dart';
+import '../../desktop/widgets/space_ui.dart';
 import '../../models/peer_model.dart';
 import '../../models/platform_model.dart';
 import '../../desktop/widgets/material_mod_popup_menu.dart' as mod_menu;
@@ -285,102 +286,60 @@ class _PeerCardState extends State<_PeerCard>
     final name = hideUsernameOnCard == true
         ? peer.hostname
         : '${peer.username}${peer.username.isNotEmpty && peer.hostname.isNotEmpty ? '@' : ''}${peer.hostname}';
-    final child = Card(
-      color: Colors.transparent,
-      elevation: 0,
-      margin: EdgeInsets.zero,
-      // to-do: memory leak here, more investigation needed.
-      // Continious rebuilds of `Obx()` will cause memory leak here.
-      // The simple demo does not have this issue.
-      child: Obx(
-        () => Container(
-          foregroundDecoration: deco.value,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(_cardRadius - _borderWidth),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Expanded(
-                  child: Container(
-                    color: str2color('${peer.id}${peer.platform}', 0x7f),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(6),
-                                child:
-                                    getPlatformImage(peer.platform, size: 60),
-                              ),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Tooltip(
-                                      message: name,
-                                      waitDuration: const Duration(seconds: 1),
-                                      child: Text(
-                                        name,
-                                        style: const TextStyle(
-                                            color: Colors.white70,
-                                            fontSize: 12),
-                                        textAlign: TextAlign.center,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              if (_showNote(peer))
-                                Row(
-                                  children: [
-                                    Expanded(
-                                        child: Tooltip(
-                                      message: peer.note,
-                                      waitDuration: const Duration(seconds: 1),
-                                      child: Text(
-                                        peer.note,
-                                        style: const TextStyle(
-                                            color: Colors.white38,
-                                            fontSize: 10),
-                                        textAlign: TextAlign.center,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ))
-                                  ],
-                                ),
-                            ],
-                          ).paddingOnly(top: 4.0, left: 4.0, right: 4.0),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                Container(
-                  color: Theme.of(context).colorScheme.background,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                          child: Row(children: [
-                        getOnline(8, peer.online),
-                        Expanded(
-                            child: Text(
-                          peer.alias.isEmpty ? formatID(peer.id) : peer.alias,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.titleSmall,
-                        )),
-                      ]).paddingSymmetric(vertical: 8)),
-                      checkBoxOrActionMoreLandscape(peer, isTile: false),
-                    ],
-                  ).paddingSymmetric(horizontal: 12.0),
-                )
-              ],
+    // Space UI: planet avatar + name / ID / status, as in the Utopia mockup.
+    final title = peer.alias.isNotEmpty
+        ? peer.alias
+        : (peer.hostname.isNotEmpty ? peer.hostname : formatID(peer.id));
+    final child = Obx(
+      () => Container(
+        foregroundDecoration: deco.value,
+        padding: const EdgeInsets.fromLTRB(14, 10, 4, 10),
+        decoration: BoxDecoration(
+          color: SpaceColors.card,
+          borderRadius: BorderRadius.circular(_cardRadius),
+          border: Border.all(color: SpaceColors.border),
+        ),
+        child: Row(children: [
+          SpacePlanet(seed: peer.id, dim: !peer.online),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Tooltip(
+              message: _showNote(peer) ? '$name\n${peer.note}' : name,
+              waitDuration: const Duration(seconds: 1),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: SpaceColors.text)),
+                  const SizedBox(height: 3),
+                  Text(formatID(peer.id),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: spaceMono(12,
+                          weight: FontWeight.w500,
+                          spacing: 0,
+                          color: SpaceColors.muted)),
+                  const SizedBox(height: 3),
+                  Text(
+                      '${peer.online ? '●' : '○'} ${translate(peer.online ? 'Online' : 'Offline')}',
+                      maxLines: 1,
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: peer.online
+                              ? SpaceColors.successText
+                              : SpaceColors.muted)),
+                ],
+              ),
             ),
           ),
-        ),
+          checkBoxOrActionMoreLandscape(peer, isTile: false),
+        ]),
       ),
     );
 

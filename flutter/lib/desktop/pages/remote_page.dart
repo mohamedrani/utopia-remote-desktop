@@ -20,6 +20,7 @@ import '../../models/platform_model.dart';
 import '../../common/shared_state.dart';
 import '../../utils/image.dart';
 import '../widgets/remote_toolbar.dart';
+import '../widgets/space_ui.dart';
 import '../widgets/kb_layout_type_chooser.dart';
 import '../widgets/tabbar_widget.dart';
 import 'macos_full_screen_focus_recovery.dart';
@@ -176,8 +177,8 @@ class _RemotePageState extends State<RemotePage>
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: []);
-      _ffi.dialogManager
-          .showLoading(translate('Connecting...'), onCancel: closeConnection);
+      // Utopia: the LaunchSequence screen (see emptyOverlay) replaces the
+      // "Connecting..." dialog and has its own Abort button.
     });
     WakelockManager.enable(_uniqueKey);
 
@@ -690,9 +691,11 @@ class _RemotePageState extends State<RemotePage>
         /// the Overlay key will be set with _blockableOverlayState in BlockableOverlay
         /// see override build() in [BlockableOverlay]
         state: _blockableOverlayState,
-        underlying: Container(
-          color: Colors.transparent,
-        ),
+        // Only shown until the first image arrives.
+        underlying: LaunchSequence(
+            id: widget.id,
+            ffi: _ffi,
+            onAbort: () => closeConnection(id: widget.id)),
       );
 
   Widget buildBody(BuildContext context) {

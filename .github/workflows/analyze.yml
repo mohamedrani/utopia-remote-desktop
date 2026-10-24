@@ -1,0 +1,26 @@
+# Quick Dart check (~3 min) before the 45 min Windows build.
+# Runs on push to analyze/** branches. The Rust bridge is not generated here,
+# so errors caused only by the missing generated_bridge.dart are filtered out.
+name: analyze
+on:
+  push:
+    branches: ['analyze/**']
+  workflow_dispatch:
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@2783a3f08e1baf891508463f8c6653c258246225  # v2.12.0
+        with:
+          channel: stable
+          flutter-version: 3.24.5
+      - name: analyze
+        working-directory: flutter
+        run: |
+          flutter pub get
+          flutter analyze --no-fatal-infos --no-fatal-warnings lib > analyze.txt 2>&1 || true
+          grep -E "^\s*error" analyze.txt | grep -v -E "generated_bridge|RustdeskImpl|EventToUI|uri_does_not_exist" > errors.txt || true
+          echo "== errors (bridge-related filtered) =="; cat errors.txt
+          echo "== warnings in changed files =="; grep -E "^\s*warning" analyze.txt | grep -E "space_ui|desktop_home_page|connection_page|login.dart|peer_card|remote_page" || true
+          test ! -s errors.txt

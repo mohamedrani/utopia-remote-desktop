@@ -5,7 +5,6 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_hbb/common/widgets/connection_page_title.dart';
 import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/desktop/widgets/popup_menu.dart';
 import 'package:flutter_hbb/models/state_model.dart';
@@ -15,6 +14,8 @@ import 'package:window_manager/window_manager.dart';
 import 'package:flutter_hbb/models/peer_model.dart';
 
 import '../../common.dart';
+import '../../desktop/widgets/space_ui.dart';
+import '../../models/peer_tab_model.dart';
 import '../../common/formatter/id_formatter.dart';
 import '../../common/widgets/peer_tab_page.dart';
 import '../../common/widgets/autocomplete.dart';
@@ -109,7 +110,14 @@ class _OnlineStatusWidgetState extends State<OnlineStatusWidget> {
           ),
         );
 
+    final dotColor = _svcStopped.value ||
+            stateGlobal.svcStatus.value == SvcStatus.connecting
+        ? kColorWarn
+        : (stateGlobal.svcStatus.value == SvcStatus.ready
+            ? SpaceColors.success
+            : Color.fromARGB(255, 224, 79, 95));
     basicWidget() => Row(
+          mainAxisSize: isIncomingOnly ? MainAxisSize.max : MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Container(
@@ -117,18 +125,13 @@ class _OnlineStatusWidgetState extends State<OnlineStatusWidget> {
               width: 8,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(4),
-                color: _svcStopped.value ||
-                        stateGlobal.svcStatus.value == SvcStatus.connecting
-                    ? kColorWarn
-                    : (stateGlobal.svcStatus.value == SvcStatus.ready
-                        ? Color.fromARGB(255, 50, 190, 166)
-                        : Color.fromARGB(255, 224, 79, 95)),
+                color: dotColor,
+                boxShadow: [BoxShadow(color: dotColor, blurRadius: 10)],
               ),
-            ).marginSymmetric(horizontal: em),
-            Container(
-              width: isIncomingOnly ? 226 : null,
-              child: _buildConnStatusMsg(),
-            ),
+            ).marginOnly(left: isIncomingOnly ? em : 0, right: 8),
+            isIncomingOnly
+                ? Container(width: 226, child: _buildConnStatusMsg())
+                : Flexible(child: _buildConnStatusMsg()),
             // stop
             if (!isIncomingOnly) startServiceWidget(),
             // ready && public
@@ -137,20 +140,37 @@ class _OnlineStatusWidgetState extends State<OnlineStatusWidget> {
           ],
         );
 
+    if (!isIncomingOnly) {
+      return Obx(() {
+        final ok = !_svcStopped.value &&
+            stateGlobal.svcStatus.value == SvcStatus.ready;
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(999),
+            color: ok ? const Color(0x1A5BD6A0) : const Color(0x14CFD8FF),
+            border: Border.all(
+                color: ok ? const Color(0x595BD6A0) : SpaceColors.border2),
+          ),
+          child: DefaultTextStyle.merge(
+              style: TextStyle(
+                  color: ok ? SpaceColors.successText : SpaceColors.text),
+              child: basicWidget()),
+        );
+      });
+    }
     return Container(
       height: height,
-      child: Obx(() => isIncomingOnly
-          ? Column(
-              children: [
-                basicWidget(),
-                Align(
-                        child: startServiceWidget(),
-                        alignment: Alignment.centerLeft)
-                    .marginOnly(top: 2.0, left: 22.0),
-              ],
-            )
-          : basicWidget()),
-    ).paddingOnly(right: isIncomingOnly ? 8 : 0);
+      child: Obx(() => Column(
+            children: [
+              basicWidget(),
+              Align(
+                      child: startServiceWidget(),
+                      alignment: Alignment.centerLeft)
+                  .marginOnly(top: 2.0, left: 22.0),
+            ],
+          )),
+    ).paddingOnly(right: 8);
   }
 
   _buildConnStatusMsg() {
@@ -162,8 +182,12 @@ class _OnlineStatusWidgetState extends State<OnlineStatusWidget> {
               ? translate("connecting_status")
               : stateGlobal.svcStatus.value == SvcStatus.notReady
                   ? translate("not_ready_status")
-                  : translate('Ready'),
-      style: TextStyle(fontSize: em),
+                  : translate(bind.isIncomingOnly()
+                      ? 'Ready'
+                      : 'Connected to Utopia network · encrypted'),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(fontSize: bind.isIncomingOnly() ? em : 13),
     );
   }
 
@@ -189,7 +213,9 @@ class _OnlineStatusWidgetState extends State<OnlineStatusWidget> {
 
 /// Connection page for connecting to a remote peer.
 class ConnectionPage extends StatefulWidget {
-  const ConnectionPage({Key? key}) : super(key: key);
+  /// "This station" card shown left of the launch card (home page).
+  final Widget? stationCard;
+  const ConnectionPage({Key? key, this.stationCard}) : super(key: key);
 
   @override
   State<ConnectionPage> createState() => _ConnectionPageState();
@@ -303,24 +329,35 @@ class _ConnectionPageState extends State<ConnectionPage>
 
   @override
   Widget build(BuildContext context) {
-    final isOutgoingOnly = bind.isOutgoingOnly();
+    final station = widget.stationCard;
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Expanded(
-            child: Column(
-          children: [
-            Row(
-              children: [
-                Flexible(child: _buildRemoteIDTextField(context)),
+        SizedBox(
+          height: 246,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (station != null) ...[
+                Expanded(child: station),
+                const SizedBox(width: 20),
               ],
-            ).marginOnly(top: 22),
-            SizedBox(height: 12),
-            Divider().paddingOnly(right: 12),
-            Expanded(child: PeerTabPage()),
-          ],
-        ).paddingOnly(left: 12.0)),
-        if (!isOutgoingOnly) const Divider(height: 1),
-        if (!isOutgoingOnly) OnlineStatusWidget()
+              Expanded(child: _buildRemoteIDTextField(context)),
+            ],
+          ),
+        ),
+        const SizedBox(height: 22),
+        Row(children: [
+          Expanded(child: SpaceLabel(translate('Your constellation'))),
+          InkWell(
+            onTap: () =>
+                gFFI.peerTabModel.setCurrentTab(PeerTabIndex.ab.index),
+            child: Text('${translate('Address book')} →',
+                style: const TextStyle(fontSize: 13, color: SpaceColors.gold)),
+          ),
+        ]),
+        const SizedBox(height: 8),
+        Expanded(child: PeerTabPage()),
       ],
     );
   }
@@ -343,16 +380,16 @@ class _ConnectionPageState extends State<ConnectionPage>
   /// UI for the remote ID TextField.
   /// Search for a peer.
   Widget _buildRemoteIDTextField(BuildContext context) {
-    var w = Container(
-      width: 320 + 20 * 2,
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 22),
-      decoration: BoxDecoration(
-          borderRadius: const BorderRadius.all(Radius.circular(13)),
-          border: Border.all(color: Theme.of(context).colorScheme.background)),
+    return SpaceCard(
+      gold: true,
       child: Ink(
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            getConnectionPageTitle(context, false).marginOnly(bottom: 15),
+            SpaceLabel(translate('Launch a session'), color: SpaceColors.gold),
+            Text(translate('Destination ID'),
+                style: const TextStyle(fontSize: 12, color: SpaceColors.muted)),
             Row(
               children: [
                 Expanded(
@@ -419,22 +456,22 @@ class _ConnectionPageState extends State<ConnectionPage>
                           enableSuggestions: false,
                           keyboardType: TextInputType.visiblePassword,
                           focusNode: fieldFocusNode,
-                          style: const TextStyle(
-                            fontFamily: 'WorkSans',
-                            fontSize: 22,
-                            height: 1.4,
-                          ),
+                          style: spaceMono(22,
+                              color: SpaceColors.goldLight, spacing: 1.8),
                           maxLines: 1,
-                          cursorColor:
-                              Theme.of(context).textTheme.titleLarge?.color,
-                          decoration: InputDecoration(
-                              filled: false,
-                              counterText: '',
-                              hintText: _idInputFocused.value
-                                  ? null
-                                  : translate('Enter Remote ID'),
-                              contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 15, vertical: 13)),
+                          cursorColor: SpaceColors.gold,
+                          decoration: spaceInputDecoration(
+                                  hint: _idInputFocused.value
+                                      ? null
+                                      : translate('Enter Remote ID'),
+                                  radius: 14)
+                              .copyWith(
+                                  hintStyle: const TextStyle(
+                                      fontFamily: kSpaceFont,
+                                      fontSize: 18,
+                                      color: Color(0x669AA3BF)),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 18, vertical: 14)),
                           controller: fieldTextEditingController,
                           inputFormatters: [IDTextInputFormatter()],
                           onChanged: (v) {
@@ -516,24 +553,42 @@ class _ConnectionPageState extends State<ConnectionPage>
               ],
             ),
             Padding(
-              padding: const EdgeInsets.only(top: 13.0),
-              child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+              padding: EdgeInsets.zero,
+              child: Row(children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 48,
+                    child: spaceGlow(
+                      child: ElevatedButton.icon(
+                        style: spaceGoldButtonStyle(),
+                        onPressed: () {
+                          onConnect();
+                        },
+                        icon: const Icon(Icons.rocket_launch_outlined,
+                            size: 18),
+                        label: Text(translate('Launch'),
+                            maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
                 SizedBox(
-                  height: 28.0,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      onConnect();
-                    },
-                    child: Text(translate("Connect")),
+                  height: 48,
+                  child: OutlinedButton(
+                    style: spaceOutlineButtonStyle(),
+                    onPressed: () => onConnect(isFileTransfer: true),
+                    child: Text(translate('Send files'),
+                        maxLines: 1, overflow: TextOverflow.ellipsis),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Container(
-                  height: 28.0,
-                  width: 28.0,
+                  height: 48.0,
+                  width: 40.0,
                   decoration: BoxDecoration(
-                    border: Border.all(color: Theme.of(context).dividerColor),
-                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0x33CFD8FF)),
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   child: Center(
                     child: StatefulBuilder(
@@ -558,10 +613,6 @@ class _ConnectionPageState extends State<ConnectionPage>
                                   context: context,
                                   position: RelativeRect.fromLTRB(x, y, x, y),
                                   items: [
-                                    (
-                                      'Transfer file',
-                                      () => onConnect(isFileTransfer: true)
-                                    ),
                                     (
                                       'View camera',
                                       () => onConnect(isViewCamera: true)
@@ -620,7 +671,5 @@ class _ConnectionPageState extends State<ConnectionPage>
         ),
       ),
     );
-    return Container(
-        constraints: const BoxConstraints(maxWidth: 600), child: w);
   }
 }

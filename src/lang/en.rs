@@ -281,5 +281,8 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("relay-fallback-delay-tip", "How long a relay connection that is already up waits for the direct WebRTC connection before it is used instead. Raise it to give a slow direct connection more time to win; lower it to settle on the relay sooner on networks where a direct connection cannot be made. Leave empty for the default of 2.5 seconds."),
         ("utopia_website_url", "https://utopiasystems.tech/desktop-en"),
         ("account_code_sent_tip", "We sent a 6-digit code to your email. It works for 10 minutes. Check the spam folder too."),
+        ("account_legal_tip", "Email sign-in only. By continuing you accept the"),
+        ("account_hero_title", "One Utopia account.\nEvery station in orbit."),
+        ("account_hero_tip", "Sign in with the email you use for Utopia Talk. Your address book and devices follow you to any computer."),
     ].iter().cloned().collect();
 }
