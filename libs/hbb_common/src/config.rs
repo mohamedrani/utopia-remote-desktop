@@ -97,8 +97,8 @@ lazy_static::lazy_static! {
     pub static ref APP_HOME_DIR: RwLock<String> = Default::default();
 }
 
-pub const LINK_DOCS_HOME: &str = "https://rustdesk.com/docs/en/";
-pub const LINK_DOCS_X11_REQUIRED: &str = "https://rustdesk.com/docs/en/manual/linux/#x11-required";
+pub const LINK_DOCS_HOME: &str = "https://utopiasystems.tech/desktop-en";
+pub const LINK_DOCS_X11_REQUIRED: &str = "https://utopiasystems.tech/desktop-en";
 
 lazy_static::lazy_static! {
     pub static ref HELPER_URL: HashMap<&'static str, &'static str> = HashMap::from([
@@ -116,6 +116,8 @@ const CHARS: &[char] = &[
 
 pub const RENDEZVOUS_SERVERS: &[&str] = &["remote.utopiasystems.tech"];
 pub const RS_PUB_KEY: &str = "4mJh0xZlB5UKMwzf6yK2iYukJsI0jdyqMtcOI7hQgaQ=";
+// Utopia account API (utopia-remote-api on utopia2), default when no API server is configured.
+pub const API_SERVER: &str = "https://remote.utopiasystems.tech";
 
 pub const RENDEZVOUS_PORT: i32 = 21116;
 pub const RELAY_PORT: i32 = 21117;

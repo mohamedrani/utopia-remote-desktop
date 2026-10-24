@@ -254,7 +254,7 @@ webrtc-util = { git = "https://github.com/rustdesk-org/webrtc", rev = "49c89bd8d
 webrtc-sctp = { git = "https://github.com/rustdesk-org/webrtc", rev = "49c89bd8d30e6e62e4c1a96cee38fdc11f79ef63" }
 
 [package.metadata.winres]
-LegalCopyright = "Copyright © 2026 Utopia Systems All rights reserved."
+LegalCopyright = "© 2026 Utopia Systems. Licensed under AGPL-3.0."
 ProductName = "Utopia Remote Desktop"
 FileDescription = "Utopia Remote Desktop"
 OriginalFilename = "UtopiaRemoteDesktop.exe"

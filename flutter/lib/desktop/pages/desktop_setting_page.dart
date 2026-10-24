@@ -2554,7 +2554,7 @@ class _AboutState extends State<_About> {
                       .marginSymmetric(vertical: 4.0)),
               InkWell(
                   onTap: () {
-                    launchUrlString('https://rustdesk.com/privacy.html');
+                    launchUrlString('https://utopiasystems.tech/desktop-privacy');
                   },
                   child: Text(
                     translate('Privacy Statement'),
@@ -2562,14 +2562,23 @@ class _AboutState extends State<_About> {
                   ).marginSymmetric(vertical: 4.0)),
               InkWell(
                   onTap: () {
-                    launchUrlString('https://rustdesk.com');
+                    launchUrlString(translate('utopia_website_url'));
                   },
                   child: Text(
                     translate('Website'),
                     style: linkStyle,
                   ).marginSymmetric(vertical: 4.0)),
+              InkWell(
+                  onTap: () {
+                    launchUrlString(
+                        'https://github.com/mohamedrani/utopia-remote-desktop');
+                  },
+                  child: Text(
+                    translate('powered_by_me'),
+                    style: linkStyle.copyWith(fontSize: 12),
+                  ).marginSymmetric(vertical: 4.0)),
               Container(
-                decoration: const BoxDecoration(color: Color(0xFF2c8cff)),
+                decoration: const BoxDecoration(color: Color(0xFF101830)),
                 padding:
                     const EdgeInsets.symmetric(vertical: 24, horizontal: 8),
                 child: SelectionArea(
@@ -2580,7 +2589,7 @@ class _AboutState extends State<_About> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Copyright © ${DateTime.now().toString().substring(0, 4)} Purslane Tech Pte. Ltd.\n$license',
+                            '© 2026 Utopia Systems. Licensed under AGPL-3.0.${license.isEmpty ? '' : '\n$license'}',
                             style: const TextStyle(color: Colors.white),
                           ),
                           Text(

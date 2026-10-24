@@ -11,6 +11,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../common.dart';
+import '../../utils/http_service.dart' as http;
 import './dialog.dart';
 import './oidc_auth_status.dart';
 
@@ -636,6 +637,7 @@ class LoginWidgetUserPass extends StatelessWidget {
   final bool isInProgress;
   final RxString curOP;
   final Function() onLogin;
+  final Function(bool register)? onAccount;
   final FocusNode? userFocusNode;
   const LoginWidgetUserPass({
     Key? key,
@@ -647,6 +649,7 @@ class LoginWidgetUserPass extends StatelessWidget {
     required this.isInProgress,
     required this.curOP,
     required this.onLogin,
+    this.onAccount,
   }) : super(key: key);
 
   @override
@@ -658,10 +661,11 @@ class LoginWidgetUserPass extends StatelessWidget {
           children: [
             const SizedBox(height: 8.0),
             DialogTextField(
-                title: translate(DialogTextField.kUsernameTitle),
+                title: translate('Email'),
                 controller: username,
                 focusNode: userFocusNode,
-                prefixIcon: DialogTextField.kUsernameIcon,
+                prefixIcon: const Icon(Icons.email_outlined),
+                keyboardType: TextInputType.emailAddress,
                 errorText: usernameMsg),
             PasswordWidget(
               controller: pass,
@@ -691,6 +695,15 @@ class LoginWidgetUserPass extends StatelessWidget {
                     )),
               ),
             ])),
+            if (onAccount != null)
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                TextButton(
+                    onPressed: isInProgress ? null : () => onAccount!(true),
+                    child: Text(translate('Create account'))),
+                TextButton(
+                    onPressed: isInProgress ? null : () => onAccount!(false),
+                    child: Text(translate('Forgot password?'))),
+              ]).marginOnly(top: 8.0),
           ],
         ));
   }
@@ -750,7 +763,7 @@ Future<bool?> _openLoginDialog() async {
     }
   }
 
-  Future.delayed(Duration.zero, fetchLoginOptions);
+  // Utopia: email + password only, so login options (OIDC) are never fetched or shown.
 
   final res = await gFFI.dialogManager.show<bool>((setState, close, context) {
     username.addListener(() {
@@ -983,9 +996,13 @@ Future<bool?> _openLoginDialog() async {
             isInProgress: isInProgress,
             curOP: curOP,
             onLogin: onLogin,
+            onAccount: (register) async {
+              final ok = await emailAccountDialog(
+                  register: register, email: username.text.trim());
+              if (ok == true) close(true);
+            },
             userFocusNode: userFocusNode,
           ),
-          thirdAuthWidget(),
         ],
       ),
       onCancel: onDialogCancel,
@@ -998,6 +1015,149 @@ Future<bool?> _openLoginDialog() async {
   }
 
   return res;
+}
+
+/// Sign-up and password reset share one flow: email -> 6-digit code by email -> new password.
+/// Success signs in (stores the token like a normal login) and returns true.
+Future<bool?> emailAccountDialog(
+    {required bool register, String email = ''}) async {
+  final emailCtl = TextEditingController(text: email);
+  final code = TextEditingController();
+  final pass = TextEditingController();
+  final pass2 = TextEditingController();
+  var codeSent = false;
+  var inProgress = false;
+  String? emailMsg;
+  String? codeMsg;
+  String? passMsg;
+
+  return gFFI.dialogManager.show<bool>((setState, close, context) {
+    Future<Map<String, dynamic>?> post(String path, Map<String, dynamic> body,
+        void Function(String) onError) async {
+      try {
+        final url = await bind.mainGetApiServer();
+        final resp = await http.post(Uri.parse('$url$path'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode(body));
+        final data = jsonDecode(decode_http_response(resp));
+        if (resp.statusCode == 200 &&
+            data is Map<String, dynamic> &&
+            data['error'] == null) {
+          return data;
+        }
+        onError(translate(
+            (data is Map ? data['error'] : null) ?? 'HTTP ${resp.statusCode}'));
+      } catch (e) {
+        onError(translate('network_error_tip'));
+      }
+      return null;
+    }
+
+    sendCode() async {
+      final e = emailCtl.text.trim();
+      if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(e)) {
+        setState(() => emailMsg = translate('Invalid email address'));
+        return;
+      }
+      setState(() {
+        inProgress = true;
+        emailMsg = null;
+      });
+      final r = await post('/api/account/code', {'email': e}, (m) => emailMsg = m);
+      setState(() {
+        inProgress = false;
+        if (r != null) codeSent = true;
+      });
+    }
+
+    setPassword() async {
+      codeMsg = null;
+      passMsg = null;
+      if (!RegExp(r'^\d{6}$').hasMatch(code.text.trim())) {
+        setState(() => codeMsg = translate('Wrong or expired code'));
+        return;
+      }
+      final pwLen = utf8.encode(pass.text).length;
+      if (pwLen < 8 || pwLen > 72) {
+        setState(
+            () => passMsg = translate('Password must be 8 to 72 characters'));
+        return;
+      }
+      if (pass.text != pass2.text) {
+        setState(() => passMsg = translate('Passwords do not match'));
+        return;
+      }
+      setState(() => inProgress = true);
+      final r = await post(
+          '/api/account/password',
+          {
+            'email': emailCtl.text.trim(),
+            'code': code.text.trim(),
+            'password': pass.text
+          },
+          (m) => codeMsg = m);
+      if (r != null) {
+        try {
+          final resp = gFFI.userModel.getLoginResponseFromAuthBody(r);
+          await bind.mainSetLocalOption(
+              key: 'access_token', value: resp.access_token!);
+          await bind.mainSetLocalOption(
+              key: 'user_info', value: jsonEncode(resp.user ?? {}));
+          close(true);
+          return;
+        } catch (e) {
+          codeMsg = translate('Server error, try again later');
+        }
+      }
+      setState(() => inProgress = false);
+    }
+
+    final submit = inProgress ? null : (codeSent ? setPassword : sendCode);
+    return CustomAlertDialog(
+      title: Text(translate(register ? 'Create account' : 'Reset password')),
+      contentBoxConstraints: BoxConstraints(minWidth: 400, maxWidth: 400),
+      content: Column(mainAxisSize: MainAxisSize.min, children: [
+        DialogTextField(
+            title: translate('Email'),
+            controller: emailCtl,
+            prefixIcon: const Icon(Icons.email_outlined),
+            keyboardType: TextInputType.emailAddress,
+            errorText: emailMsg),
+        if (codeSent) ...[
+          const SizedBox(height: 8.0),
+          Text(translate('account_code_sent_tip'),
+              style: const TextStyle(fontSize: 12)),
+          DialogTextField(
+              title: translate('Verification code'),
+              controller: code,
+              prefixIcon: const Icon(Icons.pin_outlined),
+              keyboardType: TextInputType.number,
+              maxLength: 6,
+              errorText: codeMsg),
+          PasswordWidget(
+              controller: pass,
+              title: 'New password',
+              autoFocus: false,
+              errorText: passMsg),
+          PasswordWidget(
+              controller: pass2, title: 'Confirm password', autoFocus: false),
+        ],
+        const SizedBox(height: 8.0),
+        // NOT use Offstage to wrap LinearProgressIndicator
+        if (inProgress) const LinearProgressIndicator(),
+      ]),
+      actions: [
+        dialogButton('Cancel', onPressed: close, isOutline: true),
+        if (codeSent)
+          dialogButton('Send code',
+              onPressed: inProgress ? null : sendCode, isOutline: true),
+        dialogButton(codeSent ? 'Set password and sign in' : 'Send code',
+            onPressed: submit),
+      ],
+      onCancel: close,
+      onSubmit: submit,
+    );
+  });
 }
 
 Future<bool?> verificationCodeDialog(

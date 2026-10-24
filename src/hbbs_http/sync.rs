@@ -283,7 +283,8 @@ fn heartbeat_url() -> String {
         Config::get_option("api-server"),
         Config::get_option("custom-rendezvous-server"),
     );
-    if url.is_empty() || crate::is_public(&url) {
+    // Our account API does not collect heartbeats or sysinfo.
+    if url.is_empty() || crate::is_public(&url) || url == hbb_common::config::API_SERVER {
         return "".to_owned();
     }
     format!("{}/api/heartbeat", url)
